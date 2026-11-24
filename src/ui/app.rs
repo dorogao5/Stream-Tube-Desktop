@@ -63,6 +63,8 @@ pub struct UiState {
 }
 impl Global for UiState {}
 
+const COLLAPSED_SIDEBAR_WIDTH: f32 = 88.0;
+
 pub struct AppHandle(pub WeakEntity<AppView>);
 impl Global for AppHandle {}
 
@@ -2190,13 +2192,14 @@ impl AppView {
                     .items_center()
                     .gap_1p5()
                     .py_3p5()
-                    .w(px(64.))
+                    .w_full()
+                    .px_1()
                     .rounded_xl()
                     .cursor_pointer()
                     .when(active, |d| d.bg(p.chip))
                     .hover(move |s| s.bg(p.hover))
                     .child(icon(ic).size_5().text_color(if active { p.accent } else { p.text }))
-                    .child(div().text_size(px(10.)).text_color(p.text).child(label))
+                    .child(div().w_full().truncate().text_center().text_size(px(10.)).text_color(p.text).child(label))
                     .on_click(cx.listener(move |this, _, window, cx| this.go(r.clone(), window, cx)))
             };
             return div()
@@ -2204,7 +2207,7 @@ impl AppView {
                 .flex_col()
                 .flex_none()
                 .gap_1()
-                .w(px(72.))
+                .w(px(COLLAPSED_SIDEBAR_WIDTH))
                 .px_1()
                 .pt_1()
                 .child(rail("r-home", "house", "Home", Route::Home, route == Route::Home, cx))
@@ -3002,7 +3005,7 @@ impl Render for AppView {
         } else if ui.sidebar_open {
             232.0
         } else {
-            72.0
+            COLLAPSED_SIDEBAR_WIDTH
         };
         {
             let u = cx.global_mut::<UiState>();
