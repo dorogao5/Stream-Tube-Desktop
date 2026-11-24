@@ -1059,7 +1059,15 @@ impl PlayerView {
                             ),
                     )),
             )
-            .child(div().ml_1().min_w_0().truncate().text_sm().text_color(white()).child(time_text))
+            .child(
+                div()
+                    .ml_1()
+                    .when(narrow, |d| d.min_w_0().truncate())
+                    .when(!narrow, |d| d.flex_none().whitespace_nowrap())
+                    .text_sm()
+                    .text_color(white())
+                    .child(time_text),
+            )
             .when_some(chapter_title.filter(|_| !narrow && !store::settings_snapshot().hide_chapters), |d, c| {
                 d.child(
                     div()
