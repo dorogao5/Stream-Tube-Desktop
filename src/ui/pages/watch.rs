@@ -381,16 +381,22 @@ impl WatchPage {
     fn load(&mut self, cx: &mut Context<Self>) {
         let id = self.id.clone();
         let pid = self.playlist_id.clone().filter(|p| !p.starts_with("local:"));
-        let ryd = store::settings_snapshot().ryd;
+        self.counted_rating = store::rating(&self.id);
+        if store::settings_snapshot().ryd {
+            let rating_id = id.clone();
+            cx.spawn(async move |this, cx| {
+                let votes = blocking(move || services::ryd_votes(&rating_id).ok()).await;
+                let _ = this.update(cx, |this, cx| {
+                    if store::settings_snapshot().ryd {
+                        this.votes = votes;
+                        cx.notify();
+                    }
+                });
+            }).detach();
+        }
         cx.spawn(async move |this, cx| {
-            let id2 = id.clone();
-            let info_f = blocking(move || innertube::watch_next(&id2, pid.as_deref()));
-            let id3 = id.clone();
-            let votes_f = blocking(move || if ryd { services::ryd_votes(&id3).ok() } else { None });
-            let (info, votes) = futures::join!(info_f, votes_f);
+            let info = blocking(move || innertube::watch_next(&id, pid.as_deref())).await;
             let _ = this.update(cx, |this, cx| {
-                this.votes = votes;
-                this.counted_rating = store::rating(&this.id);
                 match info {
                     Ok(w) => {
                         let s = store::settings_snapshot();
@@ -438,7 +444,7 @@ impl WatchPage {
                             .filter_map(|i| i.as_video())
                             .find(|v| !v.is_short && !v.is_live && !store::is_filtered(v, &s))
                             .cloned();
-                        if let Some(n) = &next {
+                        if let Some(n) = next.as_ref().filter(|_| s.autoplay_next) {
                             // warm up the autoplay candidate so the next video starts instantly
                             let id = n.id.clone();
                             std::thread::spawn(move || {

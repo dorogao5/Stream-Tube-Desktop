@@ -528,29 +528,35 @@ impl Player {
         if s.annotations {
             self.load_annotations(cx);
         }
+        if s.sponsorblock {
+            let segment_id = id.clone();
+            cx.spawn(async move |this, cx| {
+                let segments = blocking(move || {
+                    let categories: Vec<String> = s
+                        .sb_actions
+                        .iter()
+                        .filter(|(_, action)| action.as_str() != "off")
+                        .map(|(category, _)| category.clone())
+                        .collect();
+                    services::sponsor_segments(&segment_id, &s.sponsorblock_server, &categories)
+                        .unwrap_or_default()
+                })
+                .await;
+                let _ = this.update(cx, |p, cx| {
+                    if p.load_serial == serial {
+                        p.segments = segments;
+                        cx.notify();
+                    }
+                });
+            })
+            .detach();
+        }
         cx.spawn(async move |this, cx| {
-            let id2 = id.clone();
-            let streams_fut = blocking(move || streams::get_streams(&id2));
-            let id3 = id.clone();
-            let sb = s.clone();
-            let seg_fut = blocking(move || {
-                if !sb.sponsorblock {
-                    return Vec::new();
-                }
-                let cats: Vec<String> = sb
-                    .sb_actions
-                    .iter()
-                    .filter(|(_, a)| a.as_str() != "off")
-                    .map(|(c, _)| c.clone())
-                    .collect();
-                services::sponsor_segments(&id3, &sb.sponsorblock_server, &cats).unwrap_or_default()
-            });
-            let (res, segs) = futures::join!(streams_fut, seg_fut);
+            let res = blocking(move || streams::get_streams(&id)).await;
             let _ = this.update(cx, |p, cx| {
                 if p.load_serial != serial {
                     return;
                 }
-                p.segments = segs;
                 match res {
                     Ok(info) => {
                         let info = Arc::new(info);
