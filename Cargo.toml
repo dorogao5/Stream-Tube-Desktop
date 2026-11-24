@@ -28,6 +28,8 @@ sha1 = "0.11"
 tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# Compile GPUI shaders at launch so the app can build with Command Line Tools.
+gpui-pre-macos = { version = "=0.3.12", default-features = false, features = ["runtime_shaders"] }
 libc = "0.2"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["NSButton", "NSControl", "NSResponder", "NSView", "NSWindow"] }

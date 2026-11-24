@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 if [[ $(uname -s) != Darwin ]]; then
-    echo "Build the app on macOS with Xcode installed." >&2
+    echo "Build the app on macOS with Xcode Command Line Tools installed." >&2
     exit 1
 fi
 
@@ -16,7 +16,7 @@ binary="$target_dir/release/streamtube"
 minimum_system=$(xcrun vtool -show-build "$binary" | awk '$1 == "minos" { print $2 }')
 [[ -n $minimum_system ]]
 
-output_root="${1:-$PWD/dist/macos}"
+output_root="${1:-$PWD/dist/macos.noindex}"
 mkdir -p "$output_root"
 output_root=$(cd "$output_root" && pwd -P)
 output=$(mktemp -d "$output_root/StreamTube-$version-$(uname -m).XXXXXXXX")

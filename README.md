@@ -278,8 +278,8 @@ It lands in `dist\`. On Linux, install the packages listed in
 
 ### macOS local build
 
-Install Xcode and the Homebrew `mpv` formula. The formula also supplies FFmpeg and
-yt-dlp. Use Rust 1.100.0, or a newer stable toolchain compatible with `Cargo.lock`.
+Install the Xcode Command Line Tools and the Homebrew `mpv` formula. The formula
+also supplies FFmpeg and yt-dlp. Use Rust 1.100.0 or a compatible stable toolchain.
 
 ```sh
 brew install mpv
@@ -289,7 +289,7 @@ RUSTUP_TOOLCHAIN=1.100.0 bash packaging/macos/build-app.sh
 
 Run these commands from the repository root in a native Apple Silicon shell.
 The script prints the path to the ad hoc-signed `Stream Tube.app` under
-`dist/macos/`. The app uses Homebrew's libmpv on the Mac where it runs.
+`dist/macos.noindex/`. The app uses Homebrew's libmpv on the Mac where it runs.
 Rebuild from source to update a local build.
 For a checkout in a synchronised folder, you can pass a local output directory
 as the script's first argument, for example `"$HOME/Downloads/StreamTube-builds"`.

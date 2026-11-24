@@ -6443,6 +6443,7 @@ dependencies = [
  "futures",
  "gpui-kit",
  "gpui-pre",
+ "gpui-pre-macos",
  "image",
  "libc",
  "libloading 0.9.1",
