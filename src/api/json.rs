@@ -132,6 +132,17 @@ mod avatar_tests {
     }
 }
 
+/// A thumbnail sized for a 168 pt recommendation card on a Retina display.
+pub fn compact_thumb(v: &Value) -> Option<String> {
+    let images = v.get("thumbnails").or_else(|| v.get("sources"))?.as_array()?;
+    images
+        .iter()
+        .filter_map(|image| Some((image.get("width")?.as_u64()?, image.get("url")?.as_str()?)))
+        .filter(|(width, _)| (320..=480).contains(width))
+        .min_by_key(|(width, _)| width.abs_diff(336))
+        .map(|(_, url)| fix_url(url))
+}
+
 pub fn small_thumb(v: &Value) -> Option<String> {
     let arr = v
         .get("thumbnails")

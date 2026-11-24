@@ -8,7 +8,8 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::sync::Arc;
+use futures::channel::oneshot;
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
 
 /// Web images are decoded no larger than this (Shorts covers come as 1080x1920,
 /// but are never drawn that big); every image stays decoded in memory.
@@ -26,14 +27,14 @@ enum Slot {
     /// app assets (logo SVGs and such): gpui's own loader
     Gpui(ImageCacheItem),
     /// web images: fetched and downscaled here
-    Web(Rc<RefCell<Own>>, Task<()>),
+    Web { state: Rc<RefCell<Own>>, _task: Task<()> },
 }
 
 impl Slot {
     fn get(&self) -> Option<LoadResult> {
         match self {
             Slot::Gpui(i) => i.get(),
-            Slot::Web(st, _) => match &*st.borrow() {
+            Slot::Web { state, .. } => match &*state.borrow() {
                 Own::Done(r) => Some(r.clone()),
                 Own::Loading(_) => None,
             },
@@ -43,7 +44,7 @@ impl Slot {
     fn use_image(&self, window: &Window) -> Option<LoadResult> {
         match self {
             Slot::Gpui(i) => i.use_image(window),
-            Slot::Web(st, _) => match &mut *st.borrow_mut() {
+            Slot::Web { state, .. } => match &mut *state.borrow_mut() {
                 Own::Done(r) => Some(r.clone()),
                 Own::Loading(views) => {
                     views.insert(window.current_view());
@@ -59,10 +60,9 @@ impl Slot {
             _ => return Slot::Gpui(ImageCacheItem::new(resource, cx)),
         };
         let state = Rc::new(RefCell::new(Own::Loading(HashSet::default())));
-        let work = cx.background_executor().spawn(async move { fetch_decode(&url) });
         let weak = Rc::downgrade(&state);
         let task = cx.spawn(async move |cx| {
-            let result = work.await.map_err(|e| ImageCacheError::Other(Arc::new(e)));
+            let result = fetch_in_background(url).await.map_err(|e| ImageCacheError::Other(Arc::new(e)));
             let Some(state) = weak.upgrade() else { return };
             let prev = std::mem::replace(&mut *state.borrow_mut(), Own::Done(result));
             if let Own::Loading(views) = prev {
@@ -73,8 +73,33 @@ impl Slot {
                 });
             }
         });
-        Slot::Web(state, task)
+        Slot::Web { state, _task: task }
     }
+}
+
+type ImageRequest = (String, oneshot::Sender<anyhow::Result<Arc<RenderImage>>>);
+
+/// Keep blocking HTTP off GPUI's workers and bound concurrent downloads.
+async fn fetch_in_background(url: String) -> anyhow::Result<Arc<RenderImage>> {
+    static QUEUE: OnceLock<mpsc::Sender<ImageRequest>> = OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (sender, receiver) = mpsc::channel::<ImageRequest>();
+        let receiver = Arc::new(Mutex::new(receiver));
+        for _ in 0..8 {
+            let receiver = receiver.clone();
+            std::thread::spawn(move || loop {
+                let job = receiver.lock().unwrap().recv();
+                let Ok((url, result)) = job else { break };
+                if !result.is_canceled() {
+                    let _ = result.send(fetch_decode(&url));
+                }
+            });
+        }
+        sender
+    });
+    let (send, receive) = oneshot::channel();
+    queue.send((url, send)).map_err(|_| anyhow::anyhow!("image workers unavailable"))?;
+    receive.await?
 }
 
 /// Downloads an image and decodes it (BGRA, like gpui), shrinking oversized ones.

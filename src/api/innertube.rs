@@ -130,7 +130,8 @@ pub(crate) fn parse_tile(t: &Value) -> Option<VideoItem> {
         .to_string();
     let meta = t.pointer("/metadata/tileMetadataRenderer")?;
     let title = meta.get("title").map(text).unwrap_or_default();
-    let thumbnail = t.pointer("/header/tileHeaderRenderer/thumbnail").and_then(best_thumb).unwrap_or_else(|| default_thumb(&id));
+    let images = t.pointer("/header/tileHeaderRenderer/thumbnail");
+    let thumbnail = images.and_then(best_thumb).unwrap_or_else(|| default_thumb(&id));
     let mut overlays = Vec::new();
     find_all(t, "thumbnailOverlayTimeStatusRenderer", &mut overlays);
     let badge = overlays.first().and_then(|o| o.get("text")).map(text);
@@ -175,6 +176,7 @@ pub(crate) fn parse_tile(t: &Value) -> Option<VideoItem> {
         id,
         title,
         thumbnail,
+        compact_thumbnail: images.and_then(compact_thumb),
         channel_name,
         channel_id,
         duration_text: badge.filter(|_| duration_secs.is_some()),
@@ -229,6 +231,7 @@ fn parse_video_renderer(r: &Value) -> Option<VideoItem> {
         .is_some();
     Some(VideoItem {
         thumbnail: r.get("thumbnail").and_then(best_thumb).unwrap_or_else(|| default_thumb(&id)),
+        compact_thumbnail: r.get("thumbnail").and_then(compact_thumb),
         published_ts: published_text.as_deref().and_then(parse_relative_time),
         id,
         title,
@@ -302,7 +305,8 @@ fn parse_lockup(l: &Value) -> Option<Item> {
     let thumb_vm = l
         .pointer("/contentImage/thumbnailViewModel")
         .or_else(|| l.pointer("/contentImage/collectionThumbnailViewModel/primaryThumbnail/thumbnailViewModel"));
-    let thumbnail = thumb_vm.and_then(|t| t.get("image")).and_then(best_thumb);
+    let images = thumb_vm.and_then(|t| t.get("image"));
+    let thumbnail = images.and_then(best_thumb);
     // badges (duration / LIVE / "N videos")
     let mut badge_texts = Vec::new();
     if let Some(t) = thumb_vm {
@@ -395,6 +399,7 @@ fn parse_lockup(l: &Value) -> Option<Item> {
             });
             Some(Item::Video(VideoItem {
                 thumbnail: thumbnail.unwrap_or_else(|| default_thumb(&id)),
+                compact_thumbnail: images.and_then(compact_thumb),
                 duration_secs: duration_text.as_deref().and_then(parse_duration),
                 duration_text,
                 published_ts: published.as_deref().and_then(parse_relative_time),

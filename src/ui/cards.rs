@@ -438,6 +438,11 @@ pub fn video_row(v: &VideoItem, thumb_w: Pixels, cx: &mut App) -> AnyElement {
 pub fn compact_row(v: &VideoItem, active: bool, on_click: Option<Arc<dyn Fn(&mut Window, &mut App)>>, cx: &mut App) -> AnyElement {
     let p = pal(cx);
     let (title, thumb) = branded(v, cx);
+    let thumb = if thumb == v.thumbnail {
+        v.compact_thumbnail.clone().unwrap_or(thumb)
+    } else {
+        thumb
+    };
     let route = watch_route(v);
     div()
         .id(SharedString::from(format!("cr-{}", v.id)))

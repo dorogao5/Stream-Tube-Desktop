@@ -8,6 +8,7 @@ pub struct VideoItem {
     pub channel_id: Option<String>,
     pub channel_avatar: Option<String>,
     pub thumbnail: String,
+    pub compact_thumbnail: Option<String>,
     pub duration_text: Option<String>,
     pub duration_secs: Option<u64>,
     pub views_text: Option<String>,
