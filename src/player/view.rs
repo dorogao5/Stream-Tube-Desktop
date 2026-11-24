@@ -396,24 +396,46 @@ impl Render for PlayerView {
                     .child(div().text_color(white()).text_center().max_w(px(560.)).text_sm().child(crate::ui::friendly_error(&e)))
                     .when(!mini, |d| {
                         d.child(
-                            div()
-                                .id("retry")
-                                .px_4()
-                                .py_2()
-                                .rounded_full()
-                                .bg(white())
-                                .text_color(black())
-                                .text_sm()
-                                .cursor_pointer()
-                                .child("Retry")
-                                .on_click(move |_, _, cx| {
-                                    retry_player.update(cx, |p, cx| {
-                                        if let Some(v) = p.video.clone() {
-                                            let t = p.time;
-                                            p.play(v, Some(t), cx);
-                                        }
-                                    });
-                                }),
+                            div().flex().flex_wrap().justify_center().gap_2().child(
+                                div()
+                                    .id("retry")
+                                    .px_4()
+                                    .py_2()
+                                    .rounded_full()
+                                    .bg(white())
+                                    .text_color(black())
+                                    .text_sm()
+                                    .cursor_pointer()
+                                    .child("Retry")
+                                    .on_click(move |_, _, cx| {
+                                        cx.stop_propagation();
+                                        retry_player.update(cx, |p, cx| {
+                                            if let Some(v) = p.video.clone() {
+                                                let t = p.time;
+                                                p.play(v, Some(t), cx);
+                                            }
+                                        });
+                                    }),
+                            ).when_some(video.as_ref(), |buttons, video| {
+                                let id = crate::api::http::urlencode(&video.id);
+                                let url = format!("https://www.youtube.com/watch?v={id}");
+                                buttons.child(
+                                    div()
+                                        .id("playback-open-youtube")
+                                        .px_4()
+                                        .py_2()
+                                        .rounded_full()
+                                        .bg(hsla(0., 0., 1., 0.15))
+                                        .text_color(white())
+                                        .text_sm()
+                                        .cursor_pointer()
+                                        .child("Open on YouTube")
+                                        .on_click(move |_, _, cx| {
+                                            cx.stop_propagation();
+                                            let _ = open::that_detached(&url);
+                                        }),
+                                )
+                            }),
                         )
                     }),
             );
