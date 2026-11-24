@@ -810,6 +810,8 @@ impl PlayerView {
         // Narrow frames (the Shorts player) only get the essential buttons.
         let bar_w = f32::from(self.seek_bounds.get().size.width);
         let narrow = bar_w > 0.0 && bar_w < 560.0;
+        let compact = bar_w > 0.0 && bar_w < 760.0;
+        let label_jump = bar_w >= 900.0;
 
         // seek bar: one segment per chapter (2px gaps), hovered chapter grows
         let active = hover.is_some() || self.drag_seek.is_some();
@@ -973,11 +975,11 @@ impl PlayerView {
                 .flex_none()
                 .items_center()
                 .justify_center()
-                .size_10()
+                .size(if compact { px(32.) } else { px(40.) })
                 .rounded_full()
                 .cursor_pointer()
                 .hover(|s| s.bg(hsla(0., 0., 1., 0.15)))
-                .child(icon(name).size_6().text_color(white()))
+                .child(icon(name).size(if compact { px(20.) } else { px(24.) }).text_color(white()))
         };
         let vol_icon = if muted || volume <= 0.0 { "volume-x" } else if volume < 50.0 { "volume-1" } else { "volume-2" };
         let vol_frac = if muted { 0.0 } else { (volume / 100.0).min(1.0) as f32 };
@@ -989,6 +991,8 @@ impl PlayerView {
 
         let left = div()
             .flex()
+            .flex_1()
+            .min_w_0()
             .items_center()
             .gap_1()
             .child(ctl_btn("c-play", if paused { "play" } else { "pause" }).on_click({
@@ -1001,6 +1005,7 @@ impl PlayerView {
             .child(
                 div()
                     .flex()
+                    .flex_none()
                     .items_center()
                     .group("vol")
                     .child(ctl_btn("c-mute", vol_icon).on_click({
@@ -1011,7 +1016,7 @@ impl PlayerView {
                         div()
                             .id("vol-slider")
                             .relative()
-                            .w(px(64.))
+                            .w(if compact { px(40.) } else { px(64.) })
                             .h(px(4.))
                             .mx_2()
                             .rounded_full()
@@ -1032,12 +1037,13 @@ impl PlayerView {
                             ),
                     )),
             )
-            .child(div().ml_2().text_sm().whitespace_nowrap().text_color(white()).child(time_text))
+            .child(div().ml_1().min_w_0().truncate().text_sm().text_color(white()).child(time_text))
             .when_some(chapter_title.filter(|_| !narrow && !store::settings_snapshot().hide_chapters), |d, c| {
                 d.child(
                     div()
                         .id("c-chapter")
                         .flex()
+                        .min_w_0()
                         .items_center()
                         .gap_1()
                         .ml_3()
@@ -1048,8 +1054,8 @@ impl PlayerView {
                         .hover(|s| s.bg(hsla(0., 0., 1., 0.15)))
                         .text_sm()
                         .text_color(white())
-                        .child("•")
-                        .child(div().max_w(px(260.)).truncate().child(c))
+                        .child(div().flex_none().child("•"))
+                        .child(div().min_w_0().max_w(px(260.)).truncate().child(c))
                         .child(icon("chevron-right").size_4().text_color(white()))
                         // opens the chapter list beside the player
                         .on_click(|_, _, cx| {
@@ -1061,18 +1067,21 @@ impl PlayerView {
 
         let right = div()
             .flex()
+            .flex_none()
             .items_center()
             .gap_1()
-            .when_some(jump_to.filter(|_| !narrow), |d, t| {
+            .when_some(jump_to.filter(|_| bar_w >= 380.0), |d, t| {
                 d.child(
                     div()
                         .id("c-jump")
                         .flex()
+                        .flex_none()
                         .items_center()
+                        .justify_center()
                         .gap_1()
                         .h_8()
-                        .px_3()
-                        .mr_1()
+                        .px_2()
+                        .when(label_jump, |button| button.px_3())
                         .rounded_full()
                         .bg(hsla(0., 0., 1., 0.14))
                         .hover(|s| s.bg(hsla(0., 0., 1., 0.24)))
@@ -1080,7 +1089,8 @@ impl PlayerView {
                         .text_sm()
                         .text_color(white())
                         .child(icon("fast-forward").size_4().text_color(white()))
-                        .child("Jump ahead")
+                        .when(label_jump, |button| button.child("Jump ahead"))
+                        .tooltip(|window, cx| component::tooltip::Tooltip::new("Jump ahead").build(window, cx))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.player.update(cx, |p, _| p.seek_to(t));
                             this.poke(cx);
