@@ -685,6 +685,11 @@ impl Player {
         };
         let was_paused = self.paused;
         let mut opts = vec![format!("speed={}", self.speed)];
+        if info.hls_only && !info.is_live {
+            // The proxy already selects one HLS rendition. Limit how much of its
+            // opening segments libavformat reads before it can start or resume.
+            opts.push("demuxer-lavf-analyzeduration=0.8".into());
+        }
         if let Some(t) = start.filter(|t| *t > 0.0) {
             opts.push(format!("start={t}"));
         }
