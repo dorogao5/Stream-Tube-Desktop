@@ -126,7 +126,10 @@ pub fn thumbnail(v: &VideoItem, url: String, w: Pixels, h: Pixels, radius: Pixel
         .rounded(radius * (store::settings_snapshot().thumb_radius / 12.0))
         .overflow_hidden()
         .bg(p.surface)
-        .child(img(SharedString::from(url)).size_full().object_fit(ObjectFit::Cover))
+        // the card's ratio: otherwise the image's own (4:3 for letterboxed
+        // sddefault/hqdefault) wins over the size, the image ends up taller than
+        // the card and shows top-aligned with the bottom cut off
+        .child(img(SharedString::from(url)).size_full().aspect_ratio(w / h).object_fit(ObjectFit::Cover))
         .child(crate::player::preview::slot_marker(&v.id, cx))
         .children(badge(v, cx))
         .when_some(progress.filter(|p| *p > 0.01), |d, pr| {
@@ -679,17 +682,24 @@ pub fn grid_item(item: &Item, width: Pixels, show_channel: bool, cx: &mut App) -
 
 /// Grid layout: computes columns from available width.
 pub fn grid(items: Vec<AnyElement>, _avail: Pixels) -> Div {
-    let gy = match store::settings_snapshot().density.as_str() {
+    div().flex().flex_wrap().gap_x_4().gap_y(grid_row_gap()).w_full().children(items)
+}
+
+pub fn grid_row_gap() -> Pixels {
+    px(match store::settings_snapshot().density.as_str() {
         "compact" => 20.,
         "comfortable" => 48.,
         _ => 36.,
-    };
-    div().flex().flex_wrap().gap_x_4().gap_y(px(gy)).w_full().children(items)
+    })
 }
 
 pub fn grid_columns(avail: Pixels, min_card: f32) -> (usize, Pixels) {
+    grid_columns_with_gap(avail, min_card, px(16.))
+}
+
+pub fn grid_columns_with_gap(avail: Pixels, min_card: f32, gap: Pixels) -> (usize, Pixels) {
     let cfg = store::settings_snapshot().grid_columns as usize;
-    let gap = 16.0;
+    let gap: f32 = gap.into();
     let w: f32 = avail.into();
     let cols = if cfg > 0 { cfg } else { (((w + gap) / (min_card + gap)).floor() as usize).clamp(1, 6) };
     let card = (w - gap * (cols as f32 - 1.0)) / cols as f32;

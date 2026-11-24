@@ -350,11 +350,14 @@ fn hls_variants(master_url: &str) -> Result<(Vec<StreamFormat>, Vec<StreamFormat
         let fps = attr(l, "FRAME-RATE").and_then(|f| f.parse::<f64>().ok()).unwrap_or(0.0) as u32;
         let bitrate = attr(l, "BANDWIDTH").and_then(|b| b.parse().ok()).unwrap_or(0);
         let class = quality_class(w, h);
-        // one entry per quality: keep the higher-bitrate variant
+        let codecs = attr(l, "CODECS").unwrap_or_default();
+        // one entry per quality: keep SDR over HDR, then the higher-bitrate variant
         if let Some(e) = out.iter_mut().find(|e| quality_class(e.width, e.height) == class && e.fps == fps) {
-            if bitrate > e.bitrate {
+            let key = |c: &str, b: u64| (!is_hdr_codecs(c), b);
+            if key(&codecs, bitrate) > key(&e.codecs, e.bitrate) {
                 e.bitrate = bitrate;
                 e.url = url.trim().to_string();
+                e.codecs = codecs;
             }
             continue;
         }
@@ -362,7 +365,7 @@ fn hls_variants(master_url: &str) -> Result<(Vec<StreamFormat>, Vec<StreamFormat
             itag: 0,
             url: url.trim().to_string(),
             mime: "application/vnd.apple.mpegurl".into(),
-            codecs: attr(l, "CODECS").unwrap_or_default(),
+            codecs,
             bitrate,
             width: w,
             height: h,
@@ -731,6 +734,15 @@ pub fn fmt_class(f: &StreamFormat) -> u32 {
     quality_class(f.width, f.height)
 }
 
+/// Whether a codecs string (one codec or an HLS `CODECS` list) is HDR video:
+/// VP9 profile 2 or 10-bit AV1. These look washed out here because the software
+/// render path converts them to RGB without tone mapping, so SDR is preferred.
+pub fn is_hdr_codecs(codecs: &str) -> bool {
+    codecs.to_lowercase().split(',').map(str::trim).any(|c| {
+        c.starts_with("vp9.2") || c.starts_with("vp09.02") || (c.starts_with("av01") && c.split('.').nth(3) == Some("10"))
+    })
+}
+
 pub fn pick_formats<'a>(
     info: &'a StreamInfo,
     max_height: u32,
@@ -747,6 +759,7 @@ pub fn pick_formats<'a>(
             _ => 0,
         }
     };
+    let sdr = |f: &StreamFormat| -> u8 { (!is_hdr_codecs(&f.codecs)) as u8 };
     let st = crate::store::settings_snapshot();
     // "Enhanced bitrate": the highest-bitrate stream at the chosen resolution, whatever its codec
     let enhanced = st.enhanced_bitrate;
@@ -754,7 +767,7 @@ pub fn pick_formats<'a>(
         .video
         .iter()
         .filter(|f| max_height == 0 || fmt_class(f) <= max_height)
-        .max_by_key(|f| if enhanced { (fmt_class(f), f.fps, f.bitrate as u32 / 1000, codec_rank(f)) } else { (fmt_class(f), f.fps, codec_rank(f), f.bitrate as u32 / 1000) })
+        .max_by_key(|f| if enhanced { (fmt_class(f), sdr(f), f.fps, f.bitrate as u32 / 1000, codec_rank(f)) } else { (fmt_class(f), sdr(f), f.fps, codec_rank(f), f.bitrate as u32 / 1000) })
         .or_else(|| info.video.iter().min_by_key(|f| fmt_class(f)));
     let audio = {
         let mut cands: Vec<&StreamFormat> = info.audio.iter().collect();
@@ -814,6 +827,17 @@ mod tests {
         println!("{:?} {:?}", v.map(|v| (&v.quality_label, &v.codecs)), a.map(|a| &a.codecs));
         // HLS sources carry their audio in the manifest
         assert!(v.is_some() && (a.is_some() || s.hls_only));
+    }
+
+    #[test]
+    fn hdr_codecs() {
+        // yt-dlp names, Innertube/HLS names and HLS lists with audio
+        for hdr in ["vp9.2", "vp09.02.51.10.01.09.18.09.00", "av01.0.08M.10.0.110.09.18.09.0", "vp09.02.40.10.01.09.18.09.00,mp4a.40.2"] {
+            assert!(is_hdr_codecs(hdr), "{hdr}");
+        }
+        for sdr in ["vp9", "vp09.00.40.08", "av01.0.08M.08", "avc1.640028", "avc1.4D401F,mp4a.40.2", ""] {
+            assert!(!is_hdr_codecs(sdr), "{sdr}");
+        }
     }
 }
 

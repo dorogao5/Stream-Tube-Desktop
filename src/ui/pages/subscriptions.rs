@@ -87,8 +87,11 @@ impl FeedPage {
             let res = blocking(move || {
                 // signed in: the account's own subscriptions feed, one request instead of one per channel
                 if account {
-                    if let Ok(v) = crate::api::auth::subscriptions_videos(4) {
+                    if let Ok(mut v) = crate::api::auth::subscriptions_videos(4) {
                         if !v.is_empty() {
+                            // it isn't in date order, and the day headings repeat
+                            // ("Yesterday", "This week", "Yesterday") unless it is
+                            crate::feed::sort_feed(&mut v);
                             return (v, 0);
                         }
                     }

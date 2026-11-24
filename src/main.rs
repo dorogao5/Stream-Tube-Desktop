@@ -110,6 +110,7 @@ fn main() {
         player::controller::init(cx);
         perf::mark("player init");
         let opts = WindowOptions {
+            app_id: Some("streamtube".into()),
             window_bounds: Some(saved_window_bounds(cx)),
             titlebar: Some(TitlebarOptions {
                 title: Some("Stream Tube".into()),

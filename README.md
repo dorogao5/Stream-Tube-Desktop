@@ -209,11 +209,13 @@ sudo dnf install mpv-libs     # Fedora
 sudo pacman -S mpv            # Arch
 ```
 
-**macOS (Apple Silicon), unofficial.** A community build is published separately
-on the Releases page as *macOS … (UNOFFICIAL community build)*. It is built from the
+**macOS (Apple Silicon), unofficial.** Releases may include a
+`StreamTube-<version>-macos-arm64-UNOFFICIAL.zip`. It is built from the
 [`community/macos-apple-silicon`](https://github.com/Avaneesh-Inamdar/Stream-Tube-Desktop/tree/community/macos-apple-silicon)
-branch, contributed by [William Wessex](https://github.com/wwessex). It is **not
-made or tested by the maintainer** and isn't supported: use it at your own risk.
+branch, contributed by [William Wessex](https://github.com/wwessex). I don't have a
+Mac, so keeping that branch up to date and packaging it is done with the help of AI.
+It is **not tested on a real Mac by the maintainer** and isn't supported: use it at
+your own risk.
 It needs `brew install mpv`, and since it isn't notarised, macOS will warn before
 opening it.
 

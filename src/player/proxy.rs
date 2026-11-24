@@ -149,7 +149,7 @@ fn rewrite_master(p: &Proxy, text: &str, max_height: u32, audio_name: Option<&st
     let chosen = if fits.is_empty() {
         variants.iter().min_by_key(|(l, _)| (class(l), bw(l)))
     } else {
-        fits.into_iter().max_by_key(|(l, _)| (class(l), codec_rank(l), bw(l)))
+        fits.into_iter().max_by_key(|(l, _)| (class(l), !crate::api::streams::is_hdr_codecs(&hls_attr(l, "CODECS").unwrap_or_default()), codec_rank(l), bw(l)))
     };
     let Some((inf, uri)) = chosen else { return rewrite_playlist(p, text, max_height) };
     let local_pl = |u: &str| format!("http://127.0.0.1:{}/h/{}?max=0", p.port, register(p, u, None, HLS));

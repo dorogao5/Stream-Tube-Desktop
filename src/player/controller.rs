@@ -688,7 +688,7 @@ impl Player {
             opts.push("pause=no".into());
         }
         if let Some(v) = &self.video {
-            opts.push(format!("force-media-title={}", v.title.replace(',', " ")));
+            opts.push(mpv_media_title_option(&v.title));
         }
         mpv.set("vid", if self.audio_only { "no" } else { "auto" });
         self.loading = true;
@@ -1137,6 +1137,22 @@ pub fn caption_font(key: &str) -> &'static str {
 pub fn mpv_color(rgb: u32, opacity: u32) -> String {
     let a = (opacity.min(100) * 255 + 50) / 100;
     format!("#{a:02X}{:06X}", rgb & 0xFFFFFF)
+}
+
+fn mpv_media_title_option(title: &str) -> String {
+    // mpv's %length% quoting takes a byte count and keeps punctuation literal.
+    format!("force-media-title=%{}%{title}", title.len())
+}
+
+#[cfg(test)]
+mod media_title_tests {
+    #[::core::prelude::v1::test]
+    fn quotes_title_using_utf8_byte_length() {
+        assert_eq!(
+            super::mpv_media_title_option("[É], 日本語"),
+            "force-media-title=%15%[É], 日本語"
+        );
+    }
 }
 
 #[cfg(test)]
