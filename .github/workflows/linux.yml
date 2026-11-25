@@ -91,7 +91,8 @@ jobs:
           for d in "${parts[@]}"; do d=$(echo "$d" | xargs); [ -n "$d" ] && deb_deps+=(--depends "$d"); done
           fpm "${common[@]}" -t deb -p dist/ "${deb_deps[@]}" --depends "libmpv2 | libmpv1" --deb-recommends yt-dlp --deb-recommends ffmpeg usr
 
-          fpm "${common[@]}" -t rpm -p dist/ --rpm-autoreqprov --depends "(mpv-libs or libmpv2 or mpv)" usr
+          mpv_rpm_dep='(libmpv.so.2()(64bit) or libmpv.so.1()(64bit))'
+          fpm "${common[@]}" -t rpm -p dist/ --rpm-autoreqprov --depends "$mpv_rpm_dep" usr
 
           # GitHub turns "~" in asset names into "."; the file names use the plain
           # version, the package metadata keeps "~" so upgrades sort correctly
@@ -100,7 +101,9 @@ jobs:
           ls -l dist
           deb=$(ls dist/*.deb); rpm=$(ls dist/*.rpm)
           dpkg-deb --info "$deb"
-          rpm -qpR "$rpm"
+          rpm_requires=$(rpm -qpR "$rpm")
+          printf '%s\n' "$rpm_requires"
+          grep -Fqx -- "$mpv_rpm_dep" <<< "$rpm_requires"
           echo "deb=$deb" >> "$GITHUB_OUTPUT"
           echo "rpm=$rpm" >> "$GITHUB_OUTPUT"
 

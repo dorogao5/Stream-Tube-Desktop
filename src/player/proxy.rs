@@ -167,7 +167,7 @@ fn rewrite_master(p: &Proxy, text: &str, max_height: u32, audio_name: Option<&st
         let name_of = |m: &str| crate::api::streams::hls_media_name(m).unwrap_or_default();
         let audio = audio_name
             .and_then(|want| in_group.iter().find(|m| name_of(m) == want))
-            .or_else(|| in_group.iter().find(|m| name_of(m).to_lowercase().contains("original")))
+            .or_else(|| in_group.iter().find(|m| m.contains("acont=original") || m.contains("acont%3Doriginal") || crate::api::streams::is_original_audio_label(&name_of(m))))
             .or_else(|| in_group.iter().find(|m| hls_attr(m, "DEFAULT").as_deref() == Some("YES")))
             .or_else(|| in_group.first())
             .copied();
@@ -326,21 +326,13 @@ fn serve_pass(conn: &mut TcpStream, url: &str, range: Option<(u64, Option<u64>)>
     conn.flush()
 }
 
-fn agent() -> &'static ureq::Agent {
-    static A: OnceLock<ureq::Agent> = OnceLock::new();
-    A.get_or_init(|| {
-        let mut b = ureq::Agent::config_builder()
+fn agent() -> ureq::Agent {
+    static AGENT: crate::api::http::NetworkAgent = crate::api::http::NetworkAgent::new();
+    AGENT.get(&crate::store::settings_snapshot(), |builder| {
+        builder
             .http_status_as_error(false)
-            .ip_family(crate::store::ip_family())
             .timeout_connect(Some(std::time::Duration::from_secs(10)))
-            .timeout_recv_body(Some(std::time::Duration::from_secs(30)));
-        // video data goes through the user's proxy too (HTTP or SOCKS)
-        if let Some(p) = crate::store::proxy_setting() {
-            if let Ok(proxy) = ureq::Proxy::new(&p) {
-                b = b.proxy(Some(proxy));
-            }
-        }
-        b.build().new_agent()
+            .timeout_recv_body(Some(std::time::Duration::from_secs(30)))
     })
 }
 

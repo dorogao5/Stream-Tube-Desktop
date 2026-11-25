@@ -1,5 +1,6 @@
 //! Persistent storage: settings (JSON) + SQLite for subscriptions, history, playlists, caches.
 use crate::api::types::VideoItem;
+use crate::i18n::AppLanguage;
 use anyhow::Result;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -13,6 +14,7 @@ use std::sync::{Arc, OnceLock};
 pub struct Settings {
     // Appearance
     pub theme: String,
+    pub app_language: AppLanguage,
     pub accent: u32,
     pub start_page: String,
     pub grid_columns: u32,
@@ -26,6 +28,7 @@ pub struct Settings {
     pub ytdlp_path: String,
     pub proxy: String,
     // Player
+    pub theater_mode: bool,
     pub default_quality: u32,
     pub codec_pref: String,
     pub default_speed: f64,
@@ -112,6 +115,10 @@ pub struct Settings {
     pub ambient_mode: bool,
     pub shorts_in_player: bool,
     pub shorts_autoadvance: bool,
+    pub shorts_yt_layout: bool,
+    pub shorts_edge_nav: bool,
+    pub shorts_show_subscribe: bool,
+    pub shorts_show_dislike: bool,
     pub remember_quality: bool,
     pub exit_fullscreen_at_end: bool,
     /// "light" | "default" | "strong": gradient behind the player controls
@@ -139,6 +146,7 @@ impl Default for Settings {
         }
         Self {
             theme: "dark".into(),
+            app_language: AppLanguage::default(),
             accent: 0xff0033,
             start_page: "home".into(),
             grid_columns: 0,
@@ -148,6 +156,7 @@ impl Default for Settings {
             display_server: "auto".into(),
             ytdlp_path: String::new(),
             proxy: String::new(),
+            theater_mode: false,
             default_quality: 1080,
             codec_pref: "vp9".into(),
             default_speed: 1.0,
@@ -218,6 +227,10 @@ impl Default for Settings {
             ambient_mode: true,
             shorts_in_player: false,
             shorts_autoadvance: false,
+            shorts_yt_layout: false,
+            shorts_edge_nav: true,
+            shorts_show_subscribe: true,
+            shorts_show_dislike: true,
             remember_quality: false,
             exit_fullscreen_at_end: true,
             controls_shade: "default".into(),
@@ -325,10 +338,6 @@ pub fn update_settings(f: impl FnOnce(&mut Settings)) {
     let _ = write_settings_file(&s);
     let _ = save_setting_json("settings", &s);
     *settings_lock().write() = Arc::new(s);
-}
-
-pub fn ip_family() -> ureq::config::IpFamily {
-    if settings_snapshot().ipv4_only { ureq::config::IpFamily::Ipv4Only } else { ureq::config::IpFamily::Any }
 }
 
 /// Whether mpv can use this proxy itself (it only speaks HTTP proxies).
@@ -993,6 +1002,16 @@ pub fn set_rating(video_id: &str, r: i8) {
 #[cfg(test)]
 mod settings_tests {
     use super::*;
+
+    #[test]
+    fn theater_mode_round_trips_and_defaults_to_off() {
+        let old = settings_from_value(serde_json::json!({}));
+        assert!(!old.theater_mode);
+
+        let enabled = Settings { theater_mode: true, ..old };
+        let saved = serde_json::to_value(enabled).unwrap();
+        assert!(settings_from_value(saved).theater_mode);
+    }
 
     #[test]
     fn a_bad_field_keeps_the_others() {

@@ -1,5 +1,6 @@
 //! Shared page helpers.
 use super::*;
+use crate::i18n::{t, tf};
 use gpui_kit::component::scroll::{Scrollbar, ScrollbarHandle, ScrollbarMode};
 use std::rc::Rc;
 
@@ -445,11 +446,11 @@ pub fn rich_text_with(id: impl Into<ElementId>, text: String, emojis: &[(String,
         .child(view)
         .on_mouse_down(MouseButton::Right, move |ev: &MouseDownEvent, window, cx| {
             cx.stop_propagation();
-            let t = copy_text.clone();
-            let mut items = vec![crate::ui::app::MenuItem::new("copy", "Copy all text", move |_, cx| crate::ui::copy_to_clipboard(t.clone(), cx))];
+            let text = copy_text.clone();
+            let mut items = vec![crate::ui::app::MenuItem::new("copy", t("Copy all text"), move |_, cx| crate::ui::copy_to_clipboard(text.clone(), cx))];
             for u in urls.iter().take(3) {
                 let u2 = u.clone();
-                let label = if u.chars().count() > 40 { format!("Copy link {}…", u.chars().take(40).collect::<String>()) } else { format!("Copy link {u}") };
+                let label = if u.chars().count() > 40 { tf!("Copy link {0}…", u.chars().take(40).collect::<String>()) } else { tf!("Copy link {0}", u) };
                 items.push(crate::ui::app::MenuItem::new("link", label, move |_, cx| crate::ui::copy_to_clipboard(u2.clone(), cx)));
             }
             crate::ui::app::open_menu(ev.position, items, window, cx);
@@ -504,7 +505,7 @@ pub fn comment_body(id: impl Into<SharedString>, c: &crate::api::types::Comment,
                     .text_color(p.text2)
                     .cursor_pointer()
                     .hover(move |s| s.text_color(p.text))
-                    .child(if open { "Show less" } else { "Read more" })
+                    .child(if open { t("Show less") } else { t("Read more") })
                     .on_click(move |_, window, cx| {
                         cx.stop_propagation();
                         OPEN_COMMENTS.with(|o| {

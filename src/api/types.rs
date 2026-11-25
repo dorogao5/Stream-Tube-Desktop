@@ -230,6 +230,10 @@ pub struct StreamInfo {
     pub audio: Vec<StreamFormat>,
     pub muxed: Vec<StreamFormat>,
     pub captions: Vec<CaptionTrack>,
+    /// Original audio language code detected from stream/HLS/yt-dlp metadata, if available.
+    pub original_language: Option<String>,
+    /// Default caption track index for the original audio track, if reported by YouTube.
+    pub default_caption_index: Option<usize>,
     pub storyboard: Option<Storyboard>,
     pub source: &'static str,
     /// Play `hls_url` (through the proxy); `video` then only lists the HLS
