@@ -79,6 +79,9 @@ struct Fns {
     rc_free: unsafe extern "C" fn(*mut mpv_render_context),
 }
 
+pub const MACOS_LIBMPV_INSTALL_HINT: &str =
+    "Install libmpv with brew install mpv, then restart Stream Tube";
+
 fn lib() -> Result<&'static (Library, Fns)> {
     static LIB: std::sync::OnceLock<Result<(Library, Fns), String>> = std::sync::OnceLock::new();
     LIB.get_or_init(|| unsafe {
@@ -159,7 +162,12 @@ fn lib() -> Result<&'static (Library, Fns)> {
                 }
             }
         }
-        Err(first_real_err.unwrap_or(last_err))
+        let missing = if cfg!(target_os = "macos") {
+            MACOS_LIBMPV_INSTALL_HINT.to_string()
+        } else {
+            last_err
+        };
+        Err(first_real_err.unwrap_or(missing))
     })
     .as_ref()
     .map_err(|e| anyhow!("{e}"))

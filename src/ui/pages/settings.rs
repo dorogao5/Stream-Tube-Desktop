@@ -1084,7 +1084,7 @@ impl SettingsPage {
         let video_engine = if crate::player::mpv::available() {
             "libmpv"
         } else if cfg!(target_os = "macos") {
-            "Install libmpv with brew install mpv, then restart Stream Tube"
+            crate::player::mpv::MACOS_LIBMPV_INSTALL_HINT
         } else if cfg!(windows) {
             "libmpv-2.dll not found"
         } else {
